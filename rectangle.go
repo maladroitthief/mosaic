@@ -68,3 +68,24 @@ func (r Rectangle) ToPolygon() Polygon {
 			{X: r.Width / 2, Y: -r.Height / 2},
 		})
 }
+
+func (r Rectangle) Area() float64 {
+	return r.Width * r.Height
+}
+
+func (r Rectangle) AreaOfOverlap(o Rectangle) float64 {
+	if r.Intersects(o) == false {
+		return 0.0
+	}
+
+	rMin := r.MinPoint()
+	rMax := r.MaxPoint()
+
+	oMin := o.MinPoint()
+	oMax := o.MaxPoint()
+
+	x := min(rMax.X, oMax.X) - max(rMin.X, oMin.X)
+	y := min(rMax.Y, oMax.Y) - max(rMin.Y, oMin.Y)
+
+	return x * y
+}
