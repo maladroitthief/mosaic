@@ -113,3 +113,7 @@ func (v Vector) Length() float64 {
 func (v Vector) Magnitude() float64 {
 	return math.Sqrt(v.Length())
 }
+
+func (v Vector) Distance(w Vector) float64 {
+	return math.Sqrt(math.Pow(w.X-v.X, 2) + math.Pow(w.Y-v.Y, 2))
+}
