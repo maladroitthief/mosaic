@@ -97,21 +97,20 @@ func intersectsRay(point, v1, v2 Vector) bool {
 	return false
 }
 
-func (p Polygon) Intersects(q Polygon) (Vector, bool) {
-	normal := Vector{}
-	distance := math.MaxFloat64
+func (p Polygon) Intersects(q Polygon) (normal Vector, depth float64) {
+	depth = math.MaxFloat64
 
 	for _, plane := range p.Planes {
 		minP, maxP := projectVectors(plane.Normal, p.CalcVectors)
 		minQ, maxQ := projectVectors(plane.Normal, q.CalcVectors)
 
 		if minP >= maxQ || minQ >= maxP {
-			return Vector{}, false
+			return Vector{}, 0.0
 		}
 
 		planeDistance := math.Min(maxQ-minP, maxP-minQ)
-		if planeDistance < distance {
-			distance = planeDistance
+		if planeDistance < depth {
+			depth = planeDistance
 			normal = plane.Normal
 		}
 	}
@@ -121,12 +120,12 @@ func (p Polygon) Intersects(q Polygon) (Vector, bool) {
 		minQ, maxQ := projectVectors(plane.Normal, q.CalcVectors)
 
 		if minP >= maxQ || minQ >= maxP {
-			return Vector{}, false
+			return Vector{}, 0.0
 		}
 
 		planeDistance := math.Min(maxQ-minP, maxP-minQ)
-		if planeDistance < distance {
-			distance = planeDistance
+		if planeDistance < depth {
+			depth = planeDistance
 			normal = plane.Normal
 		}
 	}
@@ -135,13 +134,11 @@ func (p Polygon) Intersects(q Polygon) (Vector, bool) {
 		normal = normal.Invert()
 	}
 
-	result := normal.Scale(distance)
-	return result, true
+	return normal, depth
 }
 
-func (p Polygon) ContainsPolygon(q Polygon) (Vector, bool) {
-	normal := Vector{}
-	distance := math.MaxFloat64
+func (p Polygon) ContainsPolygon(q Polygon) (normal Vector, depth float64) {
+	depth = math.MaxFloat64
 	contained := true
 
 	for _, v := range q.CalcVectors {
@@ -152,7 +149,7 @@ func (p Polygon) ContainsPolygon(q Polygon) (Vector, bool) {
 	}
 
 	if contained == true {
-		return Vector{}, true
+		return Vector{}, 0.0
 	}
 
 	for _, plane := range p.Planes {
@@ -160,8 +157,8 @@ func (p Polygon) ContainsPolygon(q Polygon) (Vector, bool) {
 		minQ, maxQ := projectVectors(plane.Normal, q.CalcVectors)
 
 		planeDistance := maxQ - minQ - math.Min(maxQ-minP, maxP-minQ)
-		if planeDistance < distance && planeDistance > 0 {
-			distance = planeDistance
+		if planeDistance < depth && planeDistance > 0 {
+			depth = planeDistance
 			normal = plane.Normal
 		}
 	}
@@ -171,8 +168,8 @@ func (p Polygon) ContainsPolygon(q Polygon) (Vector, bool) {
 		minQ, maxQ := projectVectors(plane.Normal, q.CalcVectors)
 
 		planeDistance := maxQ - minQ - math.Min(maxQ-minP, maxP-minQ)
-		if planeDistance < distance && planeDistance > 0 {
-			distance = planeDistance
+		if planeDistance < depth && planeDistance > 0 {
+			depth = planeDistance
 			normal = plane.Normal
 		}
 	}
@@ -181,8 +178,7 @@ func (p Polygon) ContainsPolygon(q Polygon) (Vector, bool) {
 		normal = normal.Invert()
 	}
 
-	result := normal.Scale(distance)
-	return result, false
+	return normal, depth
 }
 
 func projectVectors(axis Vector, vectors []Vector) (min, max float64) {
