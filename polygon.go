@@ -139,6 +139,10 @@ func (p Polygon) Intersects(q Polygon) (normal Vector, depth float64) {
 
 func (p Polygon) ContainsPolygon(q Polygon) (normal Vector, depth float64) {
 	depth = math.MaxFloat64
+	xDepth := math.MaxFloat64
+	xNormal := Vector{}
+	yDepth := math.MaxFloat64
+	yNormal := Vector{}
 	contained := true
 
 	for _, v := range q.CalcVectors {
@@ -157,9 +161,14 @@ func (p Polygon) ContainsPolygon(q Polygon) (normal Vector, depth float64) {
 		minQ, maxQ := projectVectors(plane.Normal, q.CalcVectors)
 
 		planeDistance := maxQ - minQ - math.Min(maxQ-minP, maxP-minQ)
-		if planeDistance < depth && planeDistance > 0 {
-			depth = planeDistance
-			normal = plane.Normal
+		if planeDistance < xDepth && planeDistance > 0 && plane.Normal.X != 0 {
+			xDepth = planeDistance
+			xNormal = plane.Normal
+		}
+
+		if planeDistance < yDepth && planeDistance > 0 && plane.Normal.Y != 0 {
+			yDepth = planeDistance
+			yNormal = plane.Normal
 		}
 	}
 
@@ -168,14 +177,34 @@ func (p Polygon) ContainsPolygon(q Polygon) (normal Vector, depth float64) {
 		minQ, maxQ := projectVectors(plane.Normal, q.CalcVectors)
 
 		planeDistance := maxQ - minQ - math.Min(maxQ-minP, maxP-minQ)
-		if planeDistance < depth && planeDistance > 0 {
-			depth = planeDistance
-			normal = plane.Normal
+		if planeDistance < xDepth && planeDistance > 0 && plane.Normal.X != 0 {
+			xDepth = planeDistance
+			xNormal = plane.Normal
+		}
+
+		if planeDistance < yDepth && planeDistance > 0 && plane.Normal.Y != 0 {
+			yDepth = planeDistance
+			yNormal = plane.Normal
 		}
 	}
 
-	if normal.DotProduct(q.Position.Subtract(p.Position)) > 0 {
-		normal = normal.Invert()
+	if xNormal.DotProduct(q.Position.Subtract(p.Position)) > 0 {
+		xNormal = xNormal.Invert()
+	}
+
+	if yNormal.DotProduct(q.Position.Subtract(p.Position)) > 0 {
+		yNormal = yNormal.Invert()
+	}
+
+	if xDepth == math.MaxFloat64 {
+		normal = yNormal
+		depth = yDepth
+	} else if yDepth == math.MaxFloat64 {
+		normal = xNormal
+		depth = xDepth
+	} else {
+		normal = xNormal.Add(yNormal).Normalize()
+		depth = math.Sqrt(math.Pow(xDepth, 2) + math.Pow(yDepth, 2))
 	}
 
 	return normal, depth
