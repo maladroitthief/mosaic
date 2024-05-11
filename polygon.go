@@ -1,8 +1,8 @@
 package mosaic
 
 import (
-	"fmt"
 	"math"
+	"slices"
 )
 
 type Polygon struct {
@@ -56,10 +56,6 @@ func (p Polygon) SetPosition(position Vector) Polygon {
 	p.Position = position
 
 	return p.Update()
-}
-
-func (p Polygon) Info() string {
-	return fmt.Sprintf("%+v", p.Vectors)
 }
 
 func (p Polygon) Add(v Vector) Polygon {
@@ -210,6 +206,29 @@ func (p Polygon) ContainsPolygon(q Polygon) (normal Vector, depth float64) {
 	return normal, depth
 }
 
+func (p Polygon) Join(q Polygon) (Polygon, Polygon) {
+	for i := len(p.Planes) - 1; i >= 0; i-- {
+		for j := len(q.Planes) - 1; j >= 0; j-- {
+			if p.Planes[i].Distance != -q.Planes[j].Distance {
+				continue
+			}
+
+			if p.Planes[i].Normal.X != -q.Planes[j].Normal.X {
+				continue
+			}
+
+			if p.Planes[i].Normal.Y != -q.Planes[j].Normal.Y {
+				continue
+			}
+
+			p.Planes = slices.Delete(p.Planes, i, i+1)
+			q.Planes = slices.Delete(q.Planes, j, j+1)
+		}
+	}
+
+	return p, q
+}
+
 func projectVectors(axis Vector, vectors []Vector) (min, max float64) {
 	min = math.MaxFloat64
 	max = -math.MaxFloat64
@@ -242,7 +261,10 @@ func (p Polygon) calcPlanes() []Plane {
 	for i := 0; i < len(planes)-1; i++ {
 		planes[i] = NewPlane(p.CalcVectors[i], p.CalcVectors[i+1])
 	}
-	planes[len(planes)-1] = NewPlane(p.CalcVectors[len(planes)-1], p.CalcVectors[0])
+
+	if len(planes) != 0 {
+		planes[len(planes)-1] = NewPlane(p.CalcVectors[len(planes)-1], p.CalcVectors[0])
+	}
 
 	return planes
 }
