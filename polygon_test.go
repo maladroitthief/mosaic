@@ -1,8 +1,6 @@
 package mosaic_test
 
 import (
-	"cmp"
-	"slices"
 	"testing"
 
 	"github.com/maladroitthief/mosaic"
@@ -98,16 +96,19 @@ func Test_polygon_ContainsPolygon(t *testing.T) {
 
 }
 
-func Test_polygon_Join(t *testing.T) {
+func Test_polygon_SetEdge(t *testing.T) {
 	type setup struct {
 		polygon mosaic.Polygon
+		start   mosaic.Vector
+		end     mosaic.Vector
+		active  bool
 	}
 	type input struct {
 		polygon mosaic.Polygon
 	}
 	type want struct {
-		p []mosaic.Plane
-		q []mosaic.Plane
+		normal mosaic.Vector
+		depth  float64
 	}
 	tests := []struct {
 		name  string
@@ -118,43 +119,53 @@ func Test_polygon_Join(t *testing.T) {
 		{
 			name: "base case",
 			setup: setup{
-				polygon: mosaic.NewRectangle(mosaic.NewVector(2, 2), 4, 4).ToPolygon(),
+				polygon: mosaic.NewRectangle(mosaic.NewVector(10, 10), 10, 10).ToPolygon(),
+				start:   mosaic.Vector{5, -5},
+				end:     mosaic.Vector{-5, -5},
+				active:  false,
 			},
 			input: input{
-				polygon: mosaic.NewRectangle(mosaic.NewVector(6, 2), 4, 4).ToPolygon(),
+				polygon: mosaic.NewRectangle(mosaic.NewVector(10, 5), 1, 1).ToPolygon(),
 			},
 			want: want{
-				p: []mosaic.Plane{
-					{mosaic.Vector{1, -0}, 0}, {mosaic.Vector{0, -1}, -4}, {mosaic.Vector{0, 1}, 0},
-				},
-				q: []mosaic.Plane{
-					{mosaic.Vector{0, -1}, -4}, {mosaic.Vector{-1, -0}, -8}, {mosaic.Vector{0, 1}, 0},
-				},
+				normal: mosaic.Vector{},
+				depth:  0.0,
+			},
+		},
+		{
+			name: "out of bounds in X",
+			setup: setup{
+				polygon: mosaic.NewRectangle(mosaic.NewVector(10, 10), 10, 10).ToPolygon(),
+				start:   mosaic.Vector{5, -5},
+				end:     mosaic.Vector{5, 5},
+				active:  false,
+			},
+			input: input{
+				polygon: mosaic.NewRectangle(mosaic.NewVector(5, 10), 1, 1).ToPolygon(),
+			},
+			want: want{
+				normal: mosaic.Vector{-1, 0},
+				depth:  2.0,
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			tt.setup.polygon = tt.setup.polygon.SetEdge(tt.setup.start, tt.setup.end, tt.setup.active)
+
 			got := struct {
-				p mosaic.Polygon
-				q mosaic.Polygon
+				normal mosaic.Vector
+				depth  float64
 			}{}
-			got.p, got.q = tt.setup.polygon.Join(tt.input.polygon)
 
-			comparePlanes := func(p mosaic.Plane, q mosaic.Plane) int {
-				x := cmp.Compare(p.Distance, q.Distance)
-				y := cmp.Compare(p.Normal.X, q.Normal.X) * 10
-				z := cmp.Compare(p.Normal.Y, q.Normal.Y) * 100
+			got.normal, got.depth = tt.setup.polygon.Intersects(tt.input.polygon)
 
-				return x + y + z
+			if got.normal != tt.want.normal {
+				t.Errorf("polygon.ContainsPolygon() normal = %v, want %v", got.normal, tt.want.normal)
 			}
 
-			if slices.CompareFunc(got.p.Planes, tt.want.p, comparePlanes) != 0 {
-				t.Errorf("polygon.Join() p.Planes = %v, want %v", got.p.Planes, tt.want.p)
-			}
-
-			if slices.CompareFunc(got.q.Planes, tt.want.q, comparePlanes) != 0 {
-				t.Errorf("polygon.Join() q.Planes = %v, want %v", got.q.Planes, tt.want.q)
+			if got.depth != tt.want.depth {
+				t.Errorf("polygon.ContainsPolygon() depth = %v, want %v", got.depth, tt.want.depth)
 			}
 		})
 	}

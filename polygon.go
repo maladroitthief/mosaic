@@ -2,29 +2,44 @@ package mosaic
 
 import (
 	"math"
-	"slices"
 )
 
-type Polygon struct {
-	Position    Vector
-	Vectors     []Vector
-	CalcVectors []Vector
-	Planes      []Plane
-	Bounds      Rectangle
-}
+type (
+	Edge struct {
+		start  Vector
+		end    Vector
+		active bool
+	}
+	Polygon struct {
+		Position Vector
+		rawEdges []Edge
+		Edges    []Edge
+		Planes   []Plane
+		Bounds   Rectangle
+	}
+)
 
 // NewPolygon accepts an array of vectors in CCW rotation
 func NewPolygon(position Vector, vectors []Vector) Polygon {
 	p := Polygon{
 		Position: position,
-		Vectors:  vectors,
+		rawEdges: make([]Edge, len(vectors)),
+		Edges:    make([]Edge, len(vectors)),
+	}
+
+	for i := 0; i < len(vectors); i++ {
+		p.rawEdges[i] = Edge{
+			start:  vectors[i],
+			end:    vectors[(i+1)%len(vectors)],
+			active: true,
+		}
 	}
 
 	return p.Update()
 }
 
 func (p Polygon) Update() Polygon {
-	p.CalcVectors = p.calcVectors()
+	p.Edges = p.calcEdges()
 	p.Planes = p.calcPlanes()
 	p.Bounds = p.calcBounds()
 	return p
@@ -32,9 +47,9 @@ func (p Polygon) Update() Polygon {
 
 func (p Polygon) Copy(q Polygon) Polygon {
 	position := q.Position.Clone()
-	vectors := make([]Vector, len(q.Vectors))
+	vectors := make([]Vector, len(q.rawEdges))
 	for i := 0; i < len(vectors); i++ {
-		vectors[i] = q.Vectors[i].Clone()
+		vectors[i] = q.rawEdges[i].start.Clone()
 	}
 
 	return NewPolygon(position, vectors)
@@ -42,6 +57,17 @@ func (p Polygon) Copy(q Polygon) Polygon {
 
 func (p Polygon) Clone() Polygon {
 	return p.Copy(p)
+}
+
+func (p Polygon) SetEdge(start, end Vector, active bool) Polygon {
+	for i := range p.rawEdges {
+		if p.rawEdges[i].start == start && p.rawEdges[i].end == end {
+			p.rawEdges[i].active = active
+			p.Edges[i].active = active
+		}
+	}
+
+	return p.Update()
 }
 
 func (p Polygon) CheckPosition(position Vector) Polygon {
@@ -66,39 +92,37 @@ func (p Polygon) Add(v Vector) Polygon {
 
 func (p Polygon) ContainsVector(v Vector) bool {
 	rayCount := 0
-	for i := 0; i < len(p.CalcVectors); i++ {
-		j := (i + 1) % len(p.CalcVectors)
-		if intersectsRay(v, p.CalcVectors[i], p.CalcVectors[j]) {
-			rayCount++
+	for i := 0; i < len(p.Edges); i++ {
+		start := p.Edges[i].start
+		end := p.Edges[i].end
+
+		if start.Y == end.Y {
+			// Horizontal edge, Ray is vertical
+			continue
+		}
+
+		if v.Y == start.Y || v.Y == end.Y {
+			// Avoid edge cases
+			v.Y += 0.0001
+		}
+
+		if (v.Y > start.Y && v.Y <= end.Y) || (v.Y > end.Y && v.Y <= start.Y) {
+			x := start.X + (v.Y-start.Y)*(end.X-start.X)/(end.Y-start.Y)
+			if x > v.X {
+				rayCount++
+			}
 		}
 	}
+
 	return rayCount%2 == 1
-}
-
-func intersectsRay(point, v1, v2 Vector) bool {
-	if v1.Y == v2.Y {
-		// Horizontal edge, Ray is vertical
-		return false
-	}
-
-	if point.Y == v1.Y || point.Y == v2.Y {
-		// Avoid edge cases
-		point.Y += 0.0001
-	}
-
-	if (point.Y > v1.Y && point.Y <= v2.Y) || (point.Y > v2.Y && point.Y <= v1.Y) {
-		x := v1.X + (point.Y-v1.Y)*(v2.X-v1.X)/(v2.Y-v1.Y)
-		return x > point.X
-	}
-	return false
 }
 
 func (p Polygon) Intersects(q Polygon) (normal Vector, depth float64) {
 	depth = math.MaxFloat64
 
 	for _, plane := range p.Planes {
-		minP, maxP := projectVectors(plane.Normal, p.CalcVectors)
-		minQ, maxQ := projectVectors(plane.Normal, q.CalcVectors)
+		minP, maxP := projectVectors(plane.Normal, p.Edges)
+		minQ, maxQ := projectVectors(plane.Normal, q.Edges)
 
 		if minP >= maxQ || minQ >= maxP {
 			return Vector{}, 0.0
@@ -112,8 +136,8 @@ func (p Polygon) Intersects(q Polygon) (normal Vector, depth float64) {
 	}
 
 	for _, plane := range q.Planes {
-		minP, maxP := projectVectors(plane.Normal, p.CalcVectors)
-		minQ, maxQ := projectVectors(plane.Normal, q.CalcVectors)
+		minP, maxP := projectVectors(plane.Normal, p.Edges)
+		minQ, maxQ := projectVectors(plane.Normal, q.Edges)
 
 		if minP >= maxQ || minQ >= maxP {
 			return Vector{}, 0.0
@@ -141,8 +165,8 @@ func (p Polygon) ContainsPolygon(q Polygon) (normal Vector, depth float64) {
 	yNormal := Vector{}
 	contained := true
 
-	for _, v := range q.CalcVectors {
-		if !p.ContainsVector(v) {
+	for _, v := range q.Edges {
+		if !p.ContainsVector(v.start) {
 			contained = false
 			break
 		}
@@ -153,8 +177,8 @@ func (p Polygon) ContainsPolygon(q Polygon) (normal Vector, depth float64) {
 	}
 
 	for _, plane := range p.Planes {
-		minP, maxP := projectVectors(plane.Normal, p.CalcVectors)
-		minQ, maxQ := projectVectors(plane.Normal, q.CalcVectors)
+		minP, maxP := projectVectors(plane.Normal, p.Edges)
+		minQ, maxQ := projectVectors(plane.Normal, q.Edges)
 
 		planeDistance := maxQ - minQ - math.Min(maxQ-minP, maxP-minQ)
 		if planeDistance < xDepth && planeDistance > 0 && plane.Normal.X != 0 {
@@ -169,8 +193,8 @@ func (p Polygon) ContainsPolygon(q Polygon) (normal Vector, depth float64) {
 	}
 
 	for _, plane := range q.Planes {
-		minP, maxP := projectVectors(plane.Normal, p.CalcVectors)
-		minQ, maxQ := projectVectors(plane.Normal, q.CalcVectors)
+		minP, maxP := projectVectors(plane.Normal, p.Edges)
+		minQ, maxQ := projectVectors(plane.Normal, q.Edges)
 
 		planeDistance := maxQ - minQ - math.Min(maxQ-minP, maxP-minQ)
 		if planeDistance < xDepth && planeDistance > 0 && plane.Normal.X != 0 {
@@ -206,35 +230,12 @@ func (p Polygon) ContainsPolygon(q Polygon) (normal Vector, depth float64) {
 	return normal, depth
 }
 
-func (p Polygon) Join(q Polygon) (Polygon, Polygon) {
-	for i := len(p.Planes) - 1; i >= 0; i-- {
-		for j := len(q.Planes) - 1; j >= 0; j-- {
-			if p.Planes[i].Distance != -q.Planes[j].Distance {
-				continue
-			}
-
-			if p.Planes[i].Normal.X != -q.Planes[j].Normal.X {
-				continue
-			}
-
-			if p.Planes[i].Normal.Y != -q.Planes[j].Normal.Y {
-				continue
-			}
-
-			p.Planes = slices.Delete(p.Planes, i, i+1)
-			q.Planes = slices.Delete(q.Planes, j, j+1)
-		}
-	}
-
-	return p, q
-}
-
-func projectVectors(axis Vector, vectors []Vector) (min, max float64) {
+func projectVectors(axis Vector, edges []Edge) (min, max float64) {
 	min = math.MaxFloat64
 	max = -math.MaxFloat64
 
-	for _, v := range vectors {
-		projection := v.DotProduct(axis)
+	for _, edge := range edges {
+		projection := edge.start.DotProduct(axis)
 
 		if projection < min {
 			min = projection
@@ -247,23 +248,22 @@ func projectVectors(axis Vector, vectors []Vector) (min, max float64) {
 	return min, max
 }
 
-func (p Polygon) calcVectors() []Vector {
-	vectors := make([]Vector, len(p.Vectors))
-	for i := 0; i < len(vectors); i++ {
-		vectors[i] = p.Position.Add(p.Vectors[i])
+func (p Polygon) calcEdges() []Edge {
+	for i := 0; i < len(p.rawEdges); i++ {
+		p.Edges[i].start = p.Position.Add(p.rawEdges[i].start)
+		p.Edges[i].end = p.Position.Add(p.rawEdges[i].end)
+		p.Edges[i].active = p.rawEdges[i].active
 	}
 
-	return vectors
+	return p.Edges
 }
 
 func (p Polygon) calcPlanes() []Plane {
-	planes := make([]Plane, len(p.CalcVectors))
-	for i := 0; i < len(planes)-1; i++ {
-		planes[i] = NewPlane(p.CalcVectors[i], p.CalcVectors[i+1])
-	}
-
-	if len(planes) != 0 {
-		planes[len(planes)-1] = NewPlane(p.CalcVectors[len(planes)-1], p.CalcVectors[0])
+	planes := make([]Plane, len(p.Edges))
+	for i := 0; i < len(planes); i++ {
+		if p.Edges[i].active {
+			planes[i] = NewPlane(p.Edges[i].start, p.Edges[i].end)
+		}
 	}
 
 	return planes
@@ -273,12 +273,12 @@ func (p Polygon) calcBounds() Rectangle {
 	minHeight, maxHeight := math.MaxFloat64, 0.0
 	minWidth, maxWidth := math.MaxFloat64, 0.0
 
-	for i := 0; i < len(p.CalcVectors); i++ {
-		minWidth = min(minWidth, p.CalcVectors[i].X)
-		maxWidth = max(maxWidth, p.CalcVectors[i].X)
+	for i := 0; i < len(p.Edges); i++ {
+		minWidth = min(minWidth, p.Edges[i].start.X)
+		maxWidth = max(maxWidth, p.Edges[i].start.X)
 
-		minHeight = min(minHeight, p.CalcVectors[i].Y)
-		maxHeight = max(maxHeight, p.CalcVectors[i].Y)
+		minHeight = min(minHeight, p.Edges[i].start.Y)
+		maxHeight = max(maxHeight, p.Edges[i].start.Y)
 	}
 
 	return NewRectangle(p.Position, maxWidth-minWidth, maxHeight-minHeight)
