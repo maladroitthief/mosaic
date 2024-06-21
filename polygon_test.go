@@ -264,3 +264,32 @@ func Test_polygon_Clip(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkPolygonClip(b *testing.B) {
+	subject := mosaic.NewPolygon(
+		mosaic.NewVector(200, 200),
+		[]mosaic.Vector{
+			mosaic.NewVector(-150, -50),
+			mosaic.NewVector(0, -150),
+			mosaic.NewVector(150, -50),
+			mosaic.NewVector(150, 100),
+			mosaic.NewVector(50, 100),
+			mosaic.NewVector(0, 50),
+			mosaic.NewVector(-50, 150),
+			mosaic.NewVector(-100, 50),
+			mosaic.NewVector(-100, 0),
+		},
+	)
+	clip := mosaic.NewPolygon(
+		mosaic.NewVector(200, 200),
+		[]mosaic.Vector{
+			mosaic.NewVector(-100, -100),
+			mosaic.NewVector(100, -100),
+			mosaic.NewVector(100, 100),
+			mosaic.NewVector(-100, 100),
+		},
+	)
+	for n := 0; n < b.N; n++ {
+		subject.Clip(clip)
+	}
+}
