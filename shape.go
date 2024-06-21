@@ -9,8 +9,8 @@ type (
 )
 
 const (
-	PolygonShape ShapeType = iota
-	CircleShape
-	RectangleShape
+	CircleShape ShapeType = iota
 	TriangleShape
+	RectangleShape
+	PolygonShape
 )

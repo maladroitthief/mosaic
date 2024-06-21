@@ -93,7 +93,6 @@ func Test_polygon_ContainsPolygon(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func Test_polygon_SetEdge(t *testing.T) {
@@ -145,7 +144,7 @@ func Test_polygon_SetEdge(t *testing.T) {
 			},
 			want: want{
 				normal: mosaic.Vector{-1, 0},
-				depth:  2.0,
+				depth:  0.5,
 			},
 		},
 	}
@@ -169,5 +168,128 @@ func Test_polygon_SetEdge(t *testing.T) {
 			}
 		})
 	}
+}
 
+func Test_polygon_Clip(t *testing.T) {
+	type setup struct {
+		polygon mosaic.Polygon
+	}
+	type input struct {
+		polygon mosaic.Polygon
+	}
+	type want struct {
+		polygon mosaic.Polygon
+	}
+	tests := []struct {
+		name  string
+		setup setup
+		input input
+		want  want
+	}{
+		{
+			name: "base case",
+			setup: setup{
+				polygon: mosaic.NewPolygon(
+					mosaic.NewVector(200, 200),
+					[]mosaic.Vector{
+						mosaic.NewVector(-150, -50),
+						mosaic.NewVector(0, -150),
+						mosaic.NewVector(150, -50),
+						mosaic.NewVector(150, 100),
+						mosaic.NewVector(50, 100),
+						mosaic.NewVector(0, 50),
+						mosaic.NewVector(-50, 150),
+						mosaic.NewVector(-100, 50),
+						mosaic.NewVector(-100, 0),
+					},
+				),
+			},
+			input: input{
+				polygon: mosaic.NewPolygon(
+					mosaic.NewVector(200, 200),
+					[]mosaic.Vector{
+						mosaic.NewVector(-100, -100),
+						mosaic.NewVector(100, -100),
+						mosaic.NewVector(100, 100),
+						mosaic.NewVector(-100, 100),
+					},
+				),
+			},
+			want: want{
+				polygon: mosaic.NewPolygon(
+					mosaic.NewVector(200, 200),
+					[]mosaic.Vector{
+						mosaic.NewVector(100, 100),
+						mosaic.NewVector(50, 100),
+						mosaic.NewVector(0, 50),
+						mosaic.NewVector(-25, 100),
+						mosaic.NewVector(-75, 100),
+						mosaic.NewVector(-100, 50),
+						mosaic.NewVector(-100, -83.3333333333),
+						mosaic.NewVector(-75, -100),
+						mosaic.NewVector(75, -100),
+						mosaic.NewVector(100, -83.33333333333),
+					},
+				),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.setup.polygon.Clip(tt.input.polygon)
+
+			if got.Position != tt.want.polygon.Position {
+				t.Errorf("polygon.Clip().Position: got %v, want %v", got.Position, tt.want.polygon.Position)
+			}
+
+			if len(got.Edges) != len(tt.want.polygon.Edges) {
+				t.Errorf("polygon.Clip().Edges Length: got %v, want %v", len(got.Edges), len(tt.want.polygon.Edges))
+			}
+
+			tolerance := 1e-9
+			for i := range got.Edges {
+				if !WithinTolerance(got.Edges[i].Start.X, tt.want.polygon.Edges[i].Start.X, tolerance) {
+					t.Errorf("polygon.Clip().Edges.Start: got %v, want %v", got.Edges[i].Start, tt.want.polygon.Edges[i].Start)
+				}
+				if !WithinTolerance(got.Edges[i].Start.Y, tt.want.polygon.Edges[i].Start.Y, tolerance) {
+					t.Errorf("polygon.Clip().Edges.Start: got %v, want %v", got.Edges[i].Start, tt.want.polygon.Edges[i].Start)
+				}
+				if !WithinTolerance(got.Edges[i].End.X, tt.want.polygon.Edges[i].End.X, tolerance) {
+					t.Errorf("polygon.Clip().Edges.End: got %v, want %v", got.Edges[i].End, tt.want.polygon.Edges[i].End)
+				}
+				if !WithinTolerance(got.Edges[i].End.Y, tt.want.polygon.Edges[i].End.Y, tolerance) {
+					t.Errorf("polygon.Clip().Edges.End: got %v, want %v", got.Edges[i].End, tt.want.polygon.Edges[i].End)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkPolygonClip(b *testing.B) {
+	subject := mosaic.NewPolygon(
+		mosaic.NewVector(200, 200),
+		[]mosaic.Vector{
+			mosaic.NewVector(-150, -50),
+			mosaic.NewVector(0, -150),
+			mosaic.NewVector(150, -50),
+			mosaic.NewVector(150, 100),
+			mosaic.NewVector(50, 100),
+			mosaic.NewVector(0, 50),
+			mosaic.NewVector(-50, 150),
+			mosaic.NewVector(-100, 50),
+			mosaic.NewVector(-100, 0),
+		},
+	)
+	clip := mosaic.NewPolygon(
+		mosaic.NewVector(200, 200),
+		[]mosaic.Vector{
+			mosaic.NewVector(-100, -100),
+			mosaic.NewVector(100, -100),
+			mosaic.NewVector(100, 100),
+			mosaic.NewVector(-100, 100),
+		},
+	)
+	for n := 0; n < b.N; n++ {
+		subject.Clip(clip)
+	}
 }

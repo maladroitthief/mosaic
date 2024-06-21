@@ -2,10 +2,12 @@ package mosaic
 
 import "math"
 
-type Vector struct {
-	X float64
-	Y float64
-}
+type (
+	Vector struct {
+		X float64
+		Y float64
+	}
+)
 
 func NewVector(x, y float64) Vector {
 	return Vector{X: x, Y: y}
@@ -29,6 +31,10 @@ func (v Vector) Invert() Vector {
 
 func (v Vector) DotProduct(w Vector) float64 {
 	return (v.X * w.X) + (v.Y * w.Y)
+}
+
+func (v Vector) CrossProduct(w Vector) float64 {
+	return (v.X * w.Y) - (v.Y * w.X)
 }
 
 func (v Vector) Normal(w Vector) Vector {
@@ -116,4 +122,11 @@ func (v Vector) Magnitude() float64 {
 
 func (v Vector) Distance(w Vector) float64 {
 	return math.Sqrt(math.Pow(w.X-v.X, 2) + math.Pow(w.Y-v.Y, 2))
+}
+
+func (v Vector) Transform(t Transform) Vector {
+	return Vector{
+		X: t.scale*(t.cos*v.X-t.sin*v.Y) + t.x,
+		Y: t.scale*(t.sin*v.X+t.cos*v.Y) + t.y,
+	}
 }

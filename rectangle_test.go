@@ -74,3 +74,145 @@ func Test_rectangle_AreaOfOverlap(t *testing.T) {
 		})
 	}
 }
+
+func Test_rectangle_Height(t *testing.T) {
+	type setup struct {
+		rectangle mosaic.Rectangle
+		transform mosaic.Transform
+	}
+	tests := []struct {
+		name  string
+		setup setup
+		want  float64
+	}{
+		{
+			name: "base case",
+			setup: setup{
+				rectangle: mosaic.NewRectangle(
+					mosaic.NewVector(1, 1),
+					4,
+					4,
+				),
+				transform: mosaic.NewTransform(0, 0, 0, 0),
+			},
+			want: 4,
+		},
+		{
+			name: "transform position",
+			setup: setup{
+				rectangle: mosaic.NewRectangle(
+					mosaic.NewVector(1, 1),
+					4,
+					4,
+				),
+				transform: mosaic.NewTransform(5, 5, 0, 0),
+			},
+			want: 4,
+		},
+		{
+			name: "transform scale",
+			setup: setup{
+				rectangle: mosaic.NewRectangle(
+					mosaic.NewVector(1, 1),
+					4,
+					4,
+				),
+				transform: mosaic.NewTransform(0, 0, 4, 0),
+			},
+			want: 16,
+		},
+		{
+			name: "transform rotation",
+			setup: setup{
+				rectangle: mosaic.NewRectangle(
+					mosaic.NewVector(1, 1),
+					4,
+					4,
+				),
+				transform: mosaic.NewTransform(0, 0, 0, 90),
+			},
+			want: 4,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setup.rectangle = tt.setup.rectangle.Transform(tt.setup.transform)
+			got := tt.setup.rectangle.Height()
+			if got != tt.want {
+				t.Errorf("rectangle.Height() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_rectangle_Width(t *testing.T) {
+	type setup struct {
+		rectangle mosaic.Rectangle
+		transform mosaic.Transform
+	}
+	tests := []struct {
+		name  string
+		setup setup
+		want  float64
+	}{
+		{
+			name: "base case",
+			setup: setup{
+				rectangle: mosaic.NewRectangle(
+					mosaic.NewVector(1, 1),
+					4,
+					4,
+				),
+				transform: mosaic.NewTransform(0, 0, 0, 0),
+			},
+			want: 4,
+		},
+		{
+			name: "transform position",
+			setup: setup{
+				rectangle: mosaic.NewRectangle(
+					mosaic.NewVector(1, 1),
+					4,
+					4,
+				),
+				transform: mosaic.NewTransform(5, 5, 0, 0),
+			},
+			want: 4,
+		},
+		{
+			name: "transform scale",
+			setup: setup{
+				rectangle: mosaic.NewRectangle(
+					mosaic.NewVector(1, 1),
+					4,
+					4,
+				),
+				transform: mosaic.NewTransform(0, 0, 4, 0),
+			},
+			want: 16,
+		},
+		{
+			name: "transform rotation",
+			setup: setup{
+				rectangle: mosaic.NewRectangle(
+					mosaic.NewVector(1, 1),
+					4,
+					4,
+				),
+				transform: mosaic.NewTransform(0, 0, 0, 90),
+			},
+			want: 4,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setup.rectangle = tt.setup.rectangle.Transform(tt.setup.transform)
+			got := tt.setup.rectangle.Width()
+			if got != tt.want {
+				t.Errorf("rectangle.Width() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
